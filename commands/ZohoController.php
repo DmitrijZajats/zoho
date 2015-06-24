@@ -7,7 +7,6 @@ use app\models\ContactQueue;
 use app\models\Invoice;
 use app\models\InvoiceQueue;
 use Yii;
-use yii\base\Exception;
 use yii\console\Controller;
 
 /**
@@ -22,8 +21,6 @@ class ZohoController extends Controller
 {
     public function actionIndex()
     {
-        throw new Exception('Bla bla error');
-
         InvoiceQueue::invoicesList();
         Invoice::updateInvoices();
 
