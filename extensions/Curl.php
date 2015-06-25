@@ -131,10 +131,12 @@ class Curl
 
     protected function processResponse()
     {
+        $response = $this->response();
         if ( $this->responseCode >= 200 && $this->responseCode < 300 ) {
-            return $this->response();
+            return $response;
         }
-        throw new CurlException('Request failed', $this->responseCode);
+        $message = !empty($response['message']) ? $response['message'] : 'Request failed';
+        throw new CurlException($message, $this->responseCode);
     }
 
     /**

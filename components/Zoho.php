@@ -52,7 +52,8 @@ class Zoho extends \yii\base\Component
         ]));
 
         if ( (int)$response['code'] != self::ZOHO_SUCCESS_CODE ) {
-            throw new Exception('Invalid response', $response['code']);
+            $message = !empty($response['message']) ? $response['message'] : 'Invalid response';
+            throw new Exception($message, $response['code']);
         }
 
         $invoices = isset($response['invoices']) ? $response['invoices'] : [];
@@ -73,7 +74,8 @@ class Zoho extends \yii\base\Component
         $response = $curl->get($url, ArrayHelper::merge($this->_defaultParams, []));
 
         if ( (int)$response['code'] != self::ZOHO_SUCCESS_CODE ) {
-            throw new Exception('Invalid response', $response['code']);
+            $message = !empty($response['message']) ? $response['message'] : 'Invalid response';
+            throw new Exception($message, $response['code']);
         }
 
         return isset($response['invoice']) ? $response['invoice'] : [];
@@ -96,7 +98,8 @@ class Zoho extends \yii\base\Component
         ]));
 
         if ( (int)$response['code'] != self::ZOHO_SUCCESS_CODE ) {
-            throw new Exception('Invalid response', $response['code']);
+            $message = !empty($response['message']) ? $response['message'] : 'Invalid response';
+            throw new Exception($message, $response['code']);
         }
 
         $contacts = isset($response['contacts']) ? $response['contacts'] : [];
@@ -116,7 +119,8 @@ class Zoho extends \yii\base\Component
         $response = $curl->get($url, ArrayHelper::merge($this->_defaultParams, []));
 
         if ( (int)$response['code'] != self::ZOHO_SUCCESS_CODE ) {
-            throw new Exception('Invalid response', $response['code']);
+            $message = !empty($response['message']) ? $response['message'] : 'Invalid response';
+            throw new Exception($message, $response['code']);
         }
 
         return isset($response['contact']) ? $response['contact'] : [];

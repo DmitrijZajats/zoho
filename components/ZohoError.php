@@ -12,35 +12,36 @@ class ZohoError extends ErrorHandler
      */
     public function renderException($exception)
     {
-        $message = null;
+        $codeMessage = null;
         $code = $exception->getCode();
 
         switch ($code) {
             case 400:
-                $message = 'Bad Request';
+                $codeMessage = 'Bad Request';
                 break;
             case 401:
-                $message = 'Unauthorized (Invalid Authtoken)';
+                $codeMessage = 'Unauthorized (Invalid Authtoken)';
                 break;
             case 404:
-                $message = 'Not Found';
+                $codeMessage = 'Not Found';
                 break;
             case 405:
-                $message = 'Method Not Allowed (Method you have called is not supported for this API)';
+                $codeMessage = 'Method Not Allowed (Method you have called is not supported for this API)';
                 break;
             case 429:
-                $message = 'Rate Limit Exceeded (API usage limit exceeded)';
+                $codeMessage = 'Rate Limit Exceeded (API usage limit exceeded)';
                 break;
             case 500:
-                $message = 'Internal Error';
+                $codeMessage = 'Internal Error';
                 break;
             case 501:
-                $message = 'Not Implemented (Method you have called is not implemented)';
+                $codeMessage = 'Not Implemented (Method you have called is not implemented)';
                 break;
         }
 
-        if ( empty($message) ) {
-            $message = $exception->getMessage();
+        $message = $exception->getMessage();
+        if ( !empty($codeMessage) ) {
+            $message .= ' ' .$codeMessage;
         }
         Yii::error($message, LOG_CATEGORY);
         parent::renderException($exception);
