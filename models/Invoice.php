@@ -9,6 +9,7 @@ use yii\db\ActiveRecord;
 use yii\db\Expression;
 use yii\db\Query;
 use yii\helpers\Json;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "zoho_invoice".
@@ -94,15 +95,26 @@ class Invoice extends ActiveRecord
             $jsonData = Json::encode($invoiceArr);
             $dataHash = $invoice->createDataHash($jsonData);
 
+            $canSave=false;
+
             if ( $dataHash != $invoice->data_hash ) {
-                $invoice->data = $jsonData;
                 $invoice->data_hash = $dataHash;
                 $invoice->update_frequency = (int)$invoice->update_frequency + 1;
+
+                $canSave=(bool)InvoiceHeader::updateInvoiceHeader($invoice->invoice_id, $invoiceArr);
+
+                if($canSave){
+                    $canSave=InvoiceLines::updateInvoiceLines(
+                        $invoice->invoice_id,
+                        $invoice->remote_id,
+                        ArrayHelper::getValue($invoiceArr, 'line_items', [])
+                    );
+                }
             }
 
             $invoice->invoice_url = $invoiceUrl;
             $invoice->update_at = new Expression('NOW()');
-            if ( $invoice->save() ) {
+            if ( $canSave && $invoice->save() ) {
                 Yii::info('Invoice successfully updated', LOG_CATEGORY);
                 return true;
             }
@@ -130,16 +142,40 @@ class Invoice extends ActiveRecord
         $jsonData = Json::encode($invoiceArr);
         $invoice = new Invoice();
         $invoice->remote_id = $invoiceArr['invoice_id'];
-        $invoice->data = $jsonData;
         $invoice->data_hash = $invoice->createDataHash($jsonData);
         $invoice->update_frequency = 0;
         $invoice->invoice_url = $invoiceUrl;
         $invoice->create_at = new Expression('NOW()');
 
         if ( $invoice->save() ) {
+            $invoiceHeader=InvoiceHeader::createInvoiceHeader($invoice->invoice_id, $invoiceArr);
+            $wasSaved=(bool)$invoiceHeader;
+
+            if(!$wasSaved){
+                $invoice->delete();
+
+                Yii::error('Can not create new invoice', LOG_CATEGORY);
+                return false;
+            }
+
+            $wasSaved=InvoiceLines::updateInvoiceLines(
+                $invoice->invoice_id,
+                $invoice->remote_id,
+                ArrayHelper::getValue($invoiceArr, 'line_items', [])
+            );
+
+            if(!$wasSaved){
+                $invoice->delete();
+                $invoiceHeader->delete();
+
+                Yii::error('Can not create new invoice', LOG_CATEGORY);
+                return false;
+            }
+
             Yii::info('New invoice successfully created', LOG_CATEGORY);
             return true;
         }
+
         Yii::error('Can not create new invoice', LOG_CATEGORY);
         return false;
     }
@@ -164,8 +200,7 @@ class Invoice extends ActiveRecord
     public function rules()
     {
         return [
-            [['remote_id', 'data', 'data_hash', 'invoice_url'], 'required'],
-            [['data'], 'string'],
+            [['remote_id', 'data_hash', 'invoice_url'], 'required'],
             [['update_frequency'], 'integer'],
             [['update_at', 'create_at'], 'safe'],
             [['invoice_url'], 'string', 'max' => 1024],
