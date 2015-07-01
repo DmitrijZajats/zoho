@@ -3,6 +3,7 @@
 namespace app\models;
 
 use app\components\Zoho;
+use app\exceptions\InvoiceException;
 use Yii;
 use yii\base\Exception;
 use yii\db\ActiveRecord;
@@ -69,9 +70,13 @@ class Invoice extends ActiveRecord
         $invoices = array_merge($newInvoices, $invoicesToUpdate);
 
         foreach ($invoices as $invoiceId) {
-            $fullInvoice = Yii::$app->zoho->invoice($invoiceId);
-            if ( self::updateInvoice($fullInvoice) ) {
-                InvoiceQueue::deleteAll('remote_id = :remoteId', [':remoteId' => $invoiceId]);
+            try {
+                $fullInvoice = Yii::$app->zoho->invoice($invoiceId);
+                if ( self::updateInvoice($fullInvoice) ) {
+                    InvoiceQueue::deleteAll('remote_id = :remoteId', [':remoteId' => $invoiceId]);
+                }
+            } catch ( InvoiceException $e ) {
+                Yii::error($e->getMessage() . '. Invoice ID [' . $invoiceId . ']');
             }
         }
     }
@@ -88,36 +93,45 @@ class Invoice extends ActiveRecord
         }
         Yii::info("Try to update invoice [{$invoiceArr['invoice_id']}]", LOG_CATEGORY);
 
-        $invoice = self::findOne(array('remote_id' => $invoiceArr['invoice_id']));
+        $invoice = self::findOne(['remote_id' => $invoiceArr['invoice_id']]);
         if ( !empty($invoice) ) {
             $invoiceUrl = $invoiceArr['invoice_url'];
             unset($invoiceArr['invoice_url']);
             $jsonData = Json::encode($invoiceArr);
             $dataHash = $invoice->createDataHash($jsonData);
 
-            $canSave=false;
+            $success = true;
+            $transaction = Yii::$app->db->beginTransaction();
 
-            if ( $dataHash != $invoice->data_hash ) {
-                $invoice->data_hash = $dataHash;
-                $invoice->update_frequency = (int)$invoice->update_frequency + 1;
+            try {
+                if ( $dataHash != $invoice->data_hash ) {
+                    $invoice->data_hash = $dataHash;
+                    $invoice->update_frequency = (int)$invoice->update_frequency + 1;
 
-                $canSave=(bool)InvoiceHeader::updateInvoiceHeader($invoice->invoice_id, $invoiceArr);
+                    $success = $success ? InvoiceHeader::updateInvoiceHeader($invoice->invoice_id, $invoiceArr) : false;
 
-                if($canSave){
-                    $canSave=InvoiceLines::updateInvoiceLines(
+                    $success = $success ? InvoiceLines::updateInvoiceLines(
                         $invoice->invoice_id,
                         $invoice->remote_id,
                         ArrayHelper::getValue($invoiceArr, 'line_items', [])
-                    );
+                    ) : false;
                 }
+
+                $invoice->invoice_url = $invoiceUrl;
+                $invoice->update_at = new Expression('NOW()');
+                $success = $success ? $invoice->save() : false;
+                if ( $success ) {
+                    $transaction->commit();
+                    Yii::info('Invoice successfully updated', LOG_CATEGORY);
+                    return true;
+                }
+                $transaction->rollBack();
+            } catch ( \yii\db\Exception $e ) {
+                $transaction->rollBack();
+
+                throw new InvoiceException('Can not update invoice');
             }
 
-            $invoice->invoice_url = $invoiceUrl;
-            $invoice->update_at = new Expression('NOW()');
-            if ( $canSave && $invoice->save() ) {
-                Yii::info('Invoice successfully updated', LOG_CATEGORY);
-                return true;
-            }
             Yii::error('Can not update invoice. Invoice remote id ' . $invoice->remote_id, LOG_CATEGORY);
             return false;
         } else {
@@ -147,35 +161,26 @@ class Invoice extends ActiveRecord
         $invoice->invoice_url = $invoiceUrl;
         $invoice->create_at = new Expression('NOW()');
 
-        if ( $invoice->save() ) {
-            $invoiceHeader=InvoiceHeader::createInvoiceHeader($invoice->invoice_id, $invoiceArr);
-            $wasSaved=(bool)$invoiceHeader;
-
-            if(!$wasSaved){
-                $invoice->delete();
-
-                Yii::error('Can not create new invoice', LOG_CATEGORY);
-                return false;
-            }
-
-            $wasSaved=InvoiceLines::updateInvoiceLines(
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            $success = $invoice->save();
+            $success = $success ? InvoiceHeader::createInvoiceHeader($invoice->invoice_id, $invoiceArr) : false;
+            $success = $success ? InvoiceLines::updateInvoiceLines(
                 $invoice->invoice_id,
                 $invoice->remote_id,
                 ArrayHelper::getValue($invoiceArr, 'line_items', [])
-            );
+            ) : false;
 
-            if(!$wasSaved){
-                $invoice->delete();
-                $invoiceHeader->delete();
-
-                Yii::error('Can not create new invoice', LOG_CATEGORY);
-                return false;
+            if ( $success ) {
+                $transaction->commit();
+                Yii::info('New invoice successfully created', LOG_CATEGORY);
+                return true;
             }
-
-            Yii::info('New invoice successfully created', LOG_CATEGORY);
-            return true;
+            $transaction->rollBack();
+        } catch ( \yii\db\Exception $e ) {
+            $transaction->rollBack();
+            throw new InvoiceException('Can not create invoice');
         }
-
         Yii::error('Can not create new invoice', LOG_CATEGORY);
         return false;
     }
