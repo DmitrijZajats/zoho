@@ -7,7 +7,6 @@ use app\exceptions\ContactException;
 use yii\base\Exception;
 use yii\db\ActiveRecord;
 use yii\db\Expression;
-use yii\db\Expression;
 use yii\db\Query;
 use yii\helpers\Json;
 
@@ -23,7 +22,7 @@ use yii\helpers\Json;
  */
 class Contact extends ActiveRecord
 {
-    const UPDATE_CONTACTS_LIMIT_PER_SESSION = 900;
+    const UPDATE_CONTACTS_LIMIT_PER_SESSION = 5000;
     /**
      * @inheritdoc
      */

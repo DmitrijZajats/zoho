@@ -31,6 +31,6 @@ class m150707_073305_contacts extends Migration{
     }
 
     public function down(){
-        $this->dropTable('zoho_contact_info');
+        $this->dropTable('{{%contact_info}}');
     }
 }
