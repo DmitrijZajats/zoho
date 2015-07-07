@@ -12,7 +12,7 @@ class m150707_073305_contacts extends Migration{
             [
                 'info_id' =>  Schema::TYPE_INTEGER . '(10) UNSIGNED NOT NULL AUTO_INCREMENT',
                 'local_contact_id' =>  Schema::TYPE_INTEGER . '(10) UNSIGNED NOT NULL',
-                'contact_id' => Schema::TYPE_INTEGER . '(10) UNSIGNED NOT NULL',
+                'contact_id' => Schema::TYPE_STRING,
                 'contact_name' => Schema::TYPE_STRING,
                 'company_name' => Schema::TYPE_STRING,
                 'contact_person_id' => Schema::TYPE_STRING,
