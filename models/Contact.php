@@ -3,8 +3,10 @@
 namespace app\models;
 
 use Yii;
+use app\exceptions\ContactException;
 use yii\base\Exception;
 use yii\db\ActiveRecord;
+use yii\db\Expression;
 use yii\db\Expression;
 use yii\db\Query;
 use yii\helpers\Json;
@@ -14,7 +16,6 @@ use yii\helpers\Json;
  *
  * @property string $contact_id
  * @property string $remote_id
- * @property string $data
  * @property string $data_hash
  * @property string $update_frequency
  * @property string $update_at
@@ -33,7 +34,7 @@ class Contact extends ActiveRecord
 
     public static function updateContacts()
     {
-        Yii::info('Update invoices', LOG_CATEGORY);
+        Yii::info('Update contacts', LOG_CATEGORY);
         self::remove();
 
         $newContacts = (new Query())
@@ -62,9 +63,14 @@ class Contact extends ActiveRecord
 
         $contacts = array_merge($newContacts, $contactsToUpdate);
         foreach ($contacts as $contactId) {
-            $fullContact = Yii::$app->zoho->contact($contactId);
-            if ( self::updateContact($fullContact) ) {
-                ContactQueue::deleteAll('remote_id = :remoteId', [':remoteId' => $contactId]);
+            try{
+                $fullContact = Yii::$app->zoho->contact($contactId);
+                if ( self::updateContact($fullContact) ) {
+                    ContactQueue::deleteAll('remote_id = :remoteId', [':remoteId' => $contactId]);
+                }
+            }
+            catch(\Exception $e){
+                Yii::error($e->getMessage() . '. Contact ID [' . $contactId . ']', LOG_CATEGORY);
             }
         }
     }
@@ -72,25 +78,44 @@ class Contact extends ActiveRecord
     private static function updateContact(array $contactArr)
     {
         Yii::info('Try to update contact', LOG_CATEGORY);
+
         if ( !isset($contactArr['contact_id']) ) {
             throw new Exception('Invalid contact parameters');
         }
+
         $contact = self::findOne(array('remote_id' => $contactArr['contact_id']));
+
         if ( !empty($contact) ) {
             $jsonData = Json::encode($contactArr);
             $dataHash = $contact->createDataHash($jsonData);
 
-            if ( $dataHash != $contact->data_hash ) {
-                $contact->data = $jsonData;
-                $contact->data_hash = $dataHash;
-                $contact->update_frequency = (int)$contact->update_frequency + 1;
+            $success = true;
+            $transaction = Yii::$app->db->beginTransaction();
+
+            try{
+                if ( $dataHash != $contact->data_hash ) {
+                    $contact->data_hash = $dataHash;
+                    $contact->update_frequency = (int)$contact->update_frequency + 1;
+
+                    $success = $success ? ContactInfo::updateContactInfo($contact->contact_id, $contactArr) : false;
+                }
+
+                $contact->update_at = new Expression('NOW()');
+                $success = $success ? $contact->save() : false;
+                if ( $success ) {
+                    $transaction->commit();
+                    Yii::info('Contact successfully updated', LOG_CATEGORY);
+                    return true;
+                }
+
+                $transaction->rollBack();
+            }
+            catch(\yii\db\Exception $e){
+                $transaction->rollBack();
+
+                throw new ContactException('Can not update invoice');
             }
 
-            $contact->update_at = new Expression('NOW()');
-            if ( $contact->save() ) {
-                Yii::info('Contact successfully updated', LOG_CATEGORY);
-                return true;
-            }
             Yii::error('Can not update contact. Contact remote id ' . $contact->remote_id, LOG_CATEGORY);
             return false;
 
@@ -110,14 +135,27 @@ class Contact extends ActiveRecord
         $jsonData = Json::encode($contactArr);
         $contact = new Contact();
         $contact->remote_id = $contactArr['contact_id'];
-        $contact->data = $jsonData;
         $contact->data_hash = $contact->createDataHash($jsonData);
         $contact->update_frequency = 0;
         $contact->create_at = new Expression('NOW()');
 
-        if ( $contact->save() ) {
-            Yii::info('New contact successfully created', LOG_CATEGORY);
-            return true;
+        $transaction = Yii::$app->db->beginTransaction();
+
+        try {
+            $success = $contact->save();
+
+            $success = $success ? ContactInfo::createContactInfo($contact->contact_id, $contactArr) : false;
+
+            if ( $success ) {
+                $transaction->commit();
+                Yii::info('New contact successfully created', LOG_CATEGORY);
+                return true;
+            }
+            $transaction->rollBack();
+        } catch ( \yii\db\Exception $e ) {
+            $transaction->rollBack();
+
+            throw new ContactException('Can not create new contact');
         }
         Yii::error('Can not create new contact', LOG_CATEGORY);
         return false;
@@ -143,8 +181,7 @@ class Contact extends ActiveRecord
     public function rules()
     {
         return [
-            [['remote_id', 'data', 'data_hash'], 'required'],
-            [['data'], 'string'],
+            [['remote_id', 'data_hash'], 'required'],
             [['update_frequency'], 'integer'],
             [['update_at', 'create_at'], 'safe'],
             [['remote_id'], 'string', 'max' => 255],
@@ -161,7 +198,6 @@ class Contact extends ActiveRecord
         return [
             'contact_id' => 'Contact ID',
             'remote_id' => 'Remote ID',
-            'data' => 'Data',
             'data_hash' => 'Data hash',
             'update_frequency' => 'Update Frequency',
             'update_at' => 'Update At',

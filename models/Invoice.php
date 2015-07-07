@@ -75,8 +75,8 @@ class Invoice extends ActiveRecord
                 if ( self::updateInvoice($fullInvoice) ) {
                     InvoiceQueue::deleteAll('remote_id = :remoteId', [':remoteId' => $invoiceId]);
                 }
-            } catch ( InvoiceException $e ) {
-                Yii::error($e->getMessage() . '. Invoice ID [' . $invoiceId . ']');
+            } catch ( \Exception $e ) {
+                Yii::error($e->getMessage() . '. Invoice ID [' . $invoiceId . ']', LOG_CATEGORY);
             }
         }
     }
