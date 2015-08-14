@@ -35,7 +35,7 @@ class ContactInfo extends ActiveRecord{
         return [
             [['local_contact_id'], 'required'],
             [['local_contact_id'], 'integer'],
-            [['salutation', 'first_name', 'last_name'], 'safe'],
+            [['salutation', 'first_name', 'last_name', 'debiteurnummer'], 'safe'],
             [['contact_id', 'contact_name', 'company_name', 'contact_person_id', 'email'], 'string', 'max' => 255]
         ];
     }
@@ -54,7 +54,8 @@ class ContactInfo extends ActiveRecord{
             'salutation' => 'Salutation',
             'first_name' => 'First Name',
             'last_name' => 'Last Name',
-            'email' => 'Email'
+            'email' => 'Email',
+            'debiteurnummer'=> 'Debiteurnummer'
         ];
     }
 
@@ -77,6 +78,25 @@ class ContactInfo extends ActiveRecord{
 
     /**
      * @param array $contactInfo
+     * @param $fieldLabel
+     * @return null
+     */
+    private static function _getCustomField(array $contactInfo, $fieldLabel){
+        $customFields=ArrayHelper::getValue($contactInfo, 'custom_fields', []);
+
+        foreach($customFields as $field){
+            if($field['label']!=$fieldLabel){
+                continue;
+            }
+
+            return $field['value'];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array $contactInfo
      * @return $this
      */
     public function loadFromInfo(array $contactInfo){
@@ -92,6 +112,8 @@ class ContactInfo extends ActiveRecord{
             $this->last_name=ArrayHelper::getValue($contactPersonInfo, 'last_name');
             $this->email=ArrayHelper::getValue($contactPersonInfo, 'email');
         }
+
+        $this->debiteurnummer=self::_getCustomField($contactInfo, 'Debiteurnummer:');
 
         return $this;
     }

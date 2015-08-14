@@ -41,16 +41,18 @@ return [
                     'categories' => [LOG_CATEGORY],
                     'logVars' => []
                 ],
+                /*
                 [
                     'class' => 'yii\log\EmailTarget',
                     'mailer' => 'mailer',
                     'levels' => ['error', 'warning'],
                     'message' => [
                         'from' => ['noreply@zoho.parser.com'],
-                        'to' => ['dmitrij.zajats@gmail.com'],
-                        'subject' => 'Zoho parser!!!',
+                        'to' => [],
+                        'subject' => 'Zoho parser error',
                     ],
                 ],
+                */
             ],
         ],
         'db' => $db,
