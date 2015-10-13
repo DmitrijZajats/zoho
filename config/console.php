@@ -1,5 +1,6 @@
 <?php
 defined('LOG_CATEGORY') or define('LOG_CATEGORY', 'zoho');
+defined('LOG_CATEGORY_NOTIFICATIONS') or define('LOG_CATEGORY_NOTIFICATIONS', 'notifications');
 
 $params = require(__DIR__ . '/params.php');
 $db = require(__DIR__ . '/db.php');
@@ -41,18 +42,18 @@ return [
                     'categories' => [LOG_CATEGORY],
                     'logVars' => []
                 ],
-                /*
                 [
                     'class' => 'yii\log\EmailTarget',
                     'mailer' => 'mailer',
-                    'levels' => ['error', 'warning'],
+                    'levels' => ['info'],
+                    'categories' => [LOG_CATEGORY_NOTIFICATIONS],
                     'message' => [
-                        'from' => ['noreply@zoho.parser.com'],
-                        'to' => [],
-                        'subject' => 'Zoho parser error',
+                        'from' => ['noreply@zohoparser.oberig.com'],
+                        'to' => ['evert@easysecure.nl'],
+                        'subject' => 'Oberig ZOHOInvoices Parses notification',
                     ],
+                    'logVars' => []
                 ],
-                */
             ],
         ],
         'db' => $db,

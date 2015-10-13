@@ -26,5 +26,7 @@ class ZohoController extends Controller
 
         ContactQueue::contactsList();
         Contact::updateContacts();
+
+        Yii::info('Oberig ZOHOInvoices Parses has completed updating', LOG_CATEGORY_NOTIFICATIONS);
     }
 }
