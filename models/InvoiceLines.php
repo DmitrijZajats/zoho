@@ -26,7 +26,7 @@ use yii\helpers\ArrayHelper;
  */
 class InvoiceLines extends ActiveRecord
 {
-    protected static $LINE_KEYS=['line_item_id', 'item_id', 'name', 'description', 'rate', 'quantity', 'discount_amount', 'item_total'];
+    protected static $LINE_KEYS=['name', 'description', 'rate', 'quantity', 'discount_amount', 'item_total'];
     /**
      * @inheritdoc
      */
@@ -113,7 +113,7 @@ class InvoiceLines extends ActiveRecord
         Yii::info("Try to update invoice lines for [{$localInvoiceId}]", LOG_CATEGORY);
 
         if( !empty($linesData) ){
-            $insertKeys = array_merge(['local_invoice_id', 'invoice_id'], self::$LINE_KEYS);
+            $insertKeys = array_merge(['local_invoice_id', 'invoice_id', 'line_item_id', 'item_id'], self::$LINE_KEYS);
             $updateKeys = self::$LINE_KEYS;
 
             foreach($linesData as $lineData){
